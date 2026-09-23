@@ -1,0 +1,18 @@
+_min_copier_version: "9.0.0"
+
+project_name:
+  type: str
+  help: "Name of the crate / repository being generated"
+  default: "{{ _copier_conf.dst_path | basename }}"
+
+license_owner:
+  type: str
+  help: "Copyright owner recorded in LICENSE"
+  default: "{{ project_name }}"
+
+_tasks:
+  - command:
+      - sh
+      - "{{ _copier_conf.src_path }}/scripts/customize-template.sh"
+      - "{{ project_name }}"
+      - "{{ license_owner }}"

@@ -5,11 +5,27 @@ A minimal Rust crate bootstrap for the `skys3` repository.
 ## Using this template
 
 Click **Use this template** on GitHub to create a new repository from this
-one. On the first push to the new repository, the "Customize template"
-workflow automatically replaces the `skys3` placeholder with your
-repository's name in `Cargo.toml`, `README.md`, and `src/lib.rs`, and
-defaults the copyright owner in `LICENSE` to your repository's owner. Feel
-free to edit any of these files afterwards if you need different values.
+one. On the first push to the new repository, a "Customize template"
+workflow opens a pull request that replaces the `skys3` placeholder with
+your repository's name (normalized into a valid Cargo package name) in
+`Cargo.toml`, `README.md`, and `src/lib.rs`, and defaults the copyright
+owner in `LICENSE` to your repository's owner. Review and merge that pull
+request to finish bootstrapping; feel free to edit any of these files
+afterwards if you need different values.
+
+> The destination repository must allow GitHub Actions to open pull
+> requests (**Settings → Actions → General → Workflow permissions →
+> Allow GitHub Actions to create and approve pull requests**) for the
+> automated pull request to be created.
+
+Prefer to customize locally, or want a project name or license owner that
+differs from the repository name? Generate a copy with
+[Copier](https://copier.readthedocs.io/) instead:
+
+```bash
+pip install copier
+copier copy --trust https://github.com/<owner>/<this-repo> my-new-crate
+```
 
 ## Development
 

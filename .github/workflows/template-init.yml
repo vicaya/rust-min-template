@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: template-customize-${{ github.ref }}
@@ -14,9 +15,9 @@ concurrency:
 jobs:
   customize:
     # This workflow bootstraps repositories created from this template by
-    # replacing the placeholder repo name and license owner with values taken
-    # from the destination repository. It must never run against the
-    # template repository itself.
+    # opening a pull request that replaces the placeholder repo name and
+    # license owner with values taken from the destination repository. It
+    # must never run against the template repository itself.
     if: ${{ !github.event.repository.is_template }}
     runs-on: ubuntu-latest
     steps:
@@ -26,19 +27,13 @@ jobs:
         env:
           REPO_NAME: ${{ github.event.repository.name }}
           REPO_OWNER: ${{ github.repository_owner }}
-        run: |
-          set -euo pipefail
+        run: scripts/customize-template.sh "${REPO_NAME}" "${REPO_OWNER}"
 
-          if ! grep -q 'skys3' Cargo.toml; then
-            echo "Template placeholders already customized; nothing to do."
-            exit 0
-          fi
-
-          sed -i "s#https://github.com/skys3/skys3#https://github.com/${REPO_OWNER}/${REPO_NAME}#" Cargo.toml
-          sed -i "s/skys3/${REPO_NAME}/g" Cargo.toml README.md src/lib.rs
-          sed -i "s/skys3 contributors/${REPO_OWNER} contributors/" LICENSE
-
-      - name: Commit and push customized files
+      - name: Open pull request with customized files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.ref_name }}
+          REPO_FULL_NAME: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -47,8 +42,21 @@ jobs:
             exit 0
           fi
 
+          branch="template-customization"
+          if git ls-remote --exit-code --heads origin "${branch}" > /dev/null 2>&1; then
+            echo "Branch '${branch}' already exists; a customization pull request is likely already open."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${branch}"
           git add -A
-          git commit -m "chore: customize template for ${{ github.repository }}"
-          git push origin HEAD:${{ github.ref_name }}
+          git commit -m "chore: customize template for ${REPO_FULL_NAME}"
+          git push origin "${branch}"
+
+          gh pr create \
+            --base "${BASE_REF}" \
+            --head "${branch}" \
+            --title "Customize template for ${REPO_FULL_NAME}" \
+            --body "Automated customization: replaces the \`skys3\` placeholder with this repository's name and license owner. Review and merge to finish bootstrapping."
