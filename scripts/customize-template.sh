@@ -1,11 +1,9 @@
 #!/usr/bin/env sh
-# Replace this template's placeholder repo name ("skys3") and license owner
-# ("skys3 contributors") with values for a newly generated project.
-#
-# Shared by:
-#   - .github/workflows/template-init.yml (repos created via GitHub's
-#     "Use this template" button)
-#   - copier.yml (local generation via `copier copy`)
+# Render this template's tracked `*.jinja` files (the same ones Copier
+# renders for `copier copy`) into their plain counterparts, filling in the
+# destination repo's name and license owner. Used when a repo is generated
+# via GitHub's "Use this template" button, since GitHub only copies files
+# and never runs Copier/Jinja itself.
 #
 # Usage: customize-template.sh <repo-name> <owner> [dir]
 set -eu
@@ -25,27 +23,25 @@ if ! grep -qx 'name = "skys3"' Cargo.toml 2>/dev/null; then
 fi
 
 # Cargo package names must be non-empty, contain only ASCII letters, digits,
-# '-' or '_', and must start with a letter or underscore.
-package_name=$(printf '%s' "$repo_name" | sed -E 's/[^A-Za-z0-9_-]+/-/g')
-case "$package_name" in
-  [0-9]* | -*) package_name="crate-${package_name}" ;;
+# '-' or '_', and must start with a letter or underscore. Copier's own
+# `project_name` question enforces this same rule via a validator, but a
+# destination repo created via GitHub's "Use this template" button may
+# already have an invalid name that we can't ask anyone to fix, so sanitize
+# it instead of rejecting it.
+project_name=$(printf '%s' "$repo_name" | sed -E 's/[^A-Za-z0-9_-]+/-/g')
+case "$project_name" in
+  [0-9]* | -*) project_name="crate-${project_name}" ;;
 esac
 
-sed -i.bak \
-  -e "s/^name = \"skys3\"\$/name = \"${package_name}\"/" \
-  -e "s/description = \"Rust bootstrap for the skys3 repository.\"/description = \"Rust bootstrap for the ${repo_name} repository.\"/" \
-  -e "s#repository = \"https://github.com/skys3/skys3\"#repository = \"https://github.com/${owner}/${repo_name}\"#" \
-  Cargo.toml
+render() {
+  sed \
+    -e "s/{{ project_name }}/${project_name}/g" \
+    -e "s/{{ repo_name }}/${repo_name}/g" \
+    -e "s/{{ license_owner }}/${owner}/g" \
+    "$1" > "$2"
+}
 
-sed -i.bak \
-  -e "s/^# skys3\$/# ${repo_name}/" \
-  -e "s/the \`skys3\` repository/the \`${repo_name}\` repository/" \
-  README.md
-
-sed -i.bak \
-  "s/assert_eq!(env!(\"CARGO_PKG_NAME\"), \"skys3\");/assert_eq!(env!(\"CARGO_PKG_NAME\"), \"${package_name}\");/" \
-  src/lib.rs
-
-sed -i.bak "s/Copyright 2026 skys3 contributors/Copyright 2026 ${owner} contributors/" LICENSE
-
-rm -f Cargo.toml.bak README.md.bak src/lib.rs.bak LICENSE.bak
+render Cargo.toml.jinja Cargo.toml
+render README.md.jinja README.md
+render src/lib.rs.jinja src/lib.rs
+render LICENSE.jinja LICENSE

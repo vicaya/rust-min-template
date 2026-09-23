@@ -1,18 +1,27 @@
 _min_copier_version: "9.0.0"
 
+# Cargo.toml, README.md, src/lib.rs and LICENSE each have a `*.jinja`
+# counterpart alongside them. Copier automatically prefers a file's `.jinja`
+# sibling over its plain version (skipping the plain one), so the plain
+# files are only ever used to keep this repository buildable and testable
+# on its own, outside of Copier.
 project_name:
   type: str
-  help: "Name of the crate / repository being generated"
+  help: "Name of the crate (must be a valid Cargo package name)"
   default: "{{ _copier_conf.dst_path | basename }}"
+  validator: >-
+    {% if not (project_name | regex_search('^[A-Za-z_][A-Za-z0-9_-]*$')) %}
+    project_name must be a valid Cargo package name: start with a letter or
+    underscore, and contain only ASCII letters, digits, '-' or '_'.
+    {% endif %}
+
+repo_name:
+  type: str
+  help: "Name of the destination repository, used in URLs and prose"
+  default: "{{ _copier_conf.dst_path | basename }}"
+  when: false
 
 license_owner:
   type: str
   help: "Copyright owner recorded in LICENSE"
-  default: "{{ project_name }}"
-
-_tasks:
-  - command:
-      - sh
-      - "{{ _copier_conf.src_path }}/scripts/customize-template.sh"
-      - "{{ project_name }}"
-      - "{{ license_owner }}"
+  default: "{{ repo_name }}"
