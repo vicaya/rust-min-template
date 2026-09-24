@@ -19,7 +19,7 @@ env:
 jobs:
   rust:
     name: Format, lint, test, docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -48,7 +48,7 @@ jobs:
 
   msrv:
     name: Minimum supported Rust version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
