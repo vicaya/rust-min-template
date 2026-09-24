@@ -1,0 +1,4 @@
+# The template lives in `template/` so this repository stays a valid
+# repository (with its own CI) rather than a crate with raw placeholders.
+[template]
+sub_templates = ["template"]
