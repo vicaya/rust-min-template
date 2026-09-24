@@ -51,7 +51,7 @@ jobs:
           test -f .github/workflows/ci.yml
           test ! -e cargo-generate.toml
           test ! -e pre-script.rhai
-          # Liquid leftovers (GitHub `${{ }}` expressions in .github are fine).
+          # No Liquid leftovers outside .github (workflows are copied verbatim).
           ! grep -rnE '\{\{|\{%' --exclude-dir=.github .
 
       - name: Check formatting
