@@ -1,7 +1,8 @@
 # rust-min-template
 
-[![CI](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml/badge.svg)](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/vicaya/rust-min-template/badges/coverage.json)](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml)
+[![CI](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml?query=branch%3Amain)
+[![Tests](https://github.com/vicaya/rust-min-template/raw/badges/main/tests.svg)](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml?query=branch%3Amain)
+[![Coverage](https://github.com/vicaya/rust-min-template/raw/badges/main/coverage.svg)](https://github.com/vicaya/rust-min-template/actions/workflows/ci.yml?query=branch%3Amain)
 
 A minimal Rust crate template for [cargo-generate].
 
@@ -31,9 +32,12 @@ placeholders, so use `cargo generate` instead.
 - A `cargo coverage` alias in `.cargo/config.toml` that runs
   [cargo-llvm-cov] and fails below 85% line coverage (change
   `--fail-under-lines` to move the threshold). CI runs the same alias.
-- CI and coverage badges in the README. On pushes to `main`, CI publishes the
-  coverage to `coverage.json` on a `badges` branch, which the badge reads
-  through shields.io (public repositories only).
+- CI, tests, and coverage badges in the README. On pushes to `main`, CI
+  renders the test count and line coverage as SVG badges
+  (`scripts/ci/badge.sh`) on a `badges` branch, which the README embeds
+  through `github.com/<owner>/<repo>/raw/...`. They need no external service
+  and render in private repositories too; the publishing job checks that
+  GitHub serves them from the rendered README.
 - `AGENTS.md` with the pull request branch naming convention for coding
   agents: `<agent-name>/<name-describing-the-task>`, e.g. `claude/...`.
 - Dependabot for GitHub Actions and Cargo.
@@ -63,8 +67,9 @@ template/                # the files that make up a generated project
 ```
 
 The template is kept in `template/` so this repository's own CI can generate a
-project and run the full check suite against it on every push. The coverage
-badge above is the generated project's coverage.
+project and run the full check suite against it on every push. The tests and
+coverage badges above are the generated project's, published with the
+template's own `template/scripts/ci/publish-badges.sh`.
 
 ## Developing the template
 
@@ -73,9 +78,11 @@ cargo generate --path . --name smoke-test --destination /tmp --vcs none --silent
 cd /tmp/smoke-test && cargo clippy --all-targets -- -D warnings && cargo coverage
 ```
 
-Files under `template/.github/` are copied verbatim, so GitHub Actions
-`${{ ... }}` expressions are not treated as Liquid placeholders there. Anywhere
-else in `template/`, write a literal `{{` as `{{ "{{" }}`.
+Files under `template/.github/` and `template/scripts/` are copied verbatim,
+so GitHub Actions `${{ ... }}` expressions are not treated as Liquid
+placeholders there, and this repository's CI runs the badge scripts straight
+from `template/scripts/ci/`. Anywhere else in `template/`, write a literal `{{`
+as `{{ "{{" }}`.
 
 ## License
 

@@ -1,7 +1,8 @@
 # {{project_name}}
 
-[![CI](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml/badge.svg)](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/{{github_owner}}/{{project_name}}/badges/coverage.json)](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml)
+[![CI](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml?query=branch%3Amain)
+[![Tests](https://github.com/{{github_owner}}/{{project_name}}/raw/badges/main/tests.svg)](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml?query=branch%3Amain)
+[![Coverage](https://github.com/{{github_owner}}/{{project_name}}/raw/badges/main/coverage.svg)](https://github.com/{{github_owner}}/{{project_name}}/actions/workflows/ci.yml?query=branch%3Amain)
 
 A minimal Rust crate.
 
@@ -26,9 +27,12 @@ on pushes to `main` and on pull requests, plus a `cargo check` on the minimum
 supported Rust version declared in `Cargo.toml`. Dependabot keeps actions and
 crates up to date.
 
-On pushes to `main`, CI writes the line coverage to `coverage.json` on the
-`badges` branch, which the coverage badge above reads. The badge only works
-for public repositories.
+The tests and coverage badges above are generated on every push to `main`
+and stored as SVG files on the `badges` branch
+(`scripts/ci/publish-badges.sh`, rendered by `scripts/ci/badge.sh`), so they
+need no external service and render in a private repository too. The job
+that publishes them checks that GitHub serves them as images from the
+rendered README (`scripts/ci/verify-badges-render.sh`).
 
 ## License
 
