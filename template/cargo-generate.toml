@@ -3,5 +3,11 @@
 # treated as Liquid placeholders.
 exclude = [".github/**"]
 
+[placeholders.github_owner]
+type = "string"
+prompt = "GitHub user or organization that will own the repository (for README badges)"
+default = "vicaya"
+regex = "^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$"
+
 [hooks]
 pre = ["pre-script.rhai"]
