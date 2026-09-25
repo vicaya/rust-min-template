@@ -1,7 +1,8 @@
 [template]
-# Copy workflows verbatim so GitHub Actions `${{ ... }}` expressions are not
-# treated as Liquid placeholders.
-exclude = [".github/**"]
+# Copy workflows and CI scripts verbatim so GitHub Actions `${{ ... }}`
+# expressions are not treated as Liquid placeholders and the scripts can be
+# run from this repository unrendered.
+exclude = [".github/**", "scripts/**"]
 
 [placeholders.github_owner]
 type = "string"

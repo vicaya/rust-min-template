@@ -21,8 +21,6 @@ jobs:
   generate:
     name: Generate and check a project
     runs-on: ubuntu-24.04
-    outputs:
-      coverage: ${{ steps.coverage.outputs.percent }}
     steps:
       - uses: actions/checkout@v7
 
@@ -49,8 +47,10 @@ jobs:
           set -x
           grep -qx "name = \"$PROJECT_NAME\"" Cargo.toml
           grep -qx "# $PROJECT_NAME" README.md
-          grep -qF "https://github.com/vicaya/$PROJECT_NAME/actions/workflows/ci.yml/badge.svg" README.md
-          grep -qF "raw.githubusercontent.com/vicaya/$PROJECT_NAME/badges/coverage.json" README.md
+          grep -qF "https://github.com/vicaya/$PROJECT_NAME/actions/workflows/ci.yml/badge.svg?branch=main" README.md
+          grep -qF "https://github.com/vicaya/$PROJECT_NAME/raw/badges/main/tests.svg" README.md
+          grep -qF "https://github.com/vicaya/$PROJECT_NAME/raw/badges/main/coverage.svg" README.md
+          cmp scripts/ci/publish-badges.sh "$GITHUB_WORKSPACE/template/scripts/ci/publish-badges.sh"
           grep -qx "Copyright $(date +%Y) Sky Computing LLC" LICENSE
           test -f .github/workflows/ci.yml
           grep -q -- '--fail-under-lines 85' .cargo/config.toml
@@ -83,35 +83,56 @@ jobs:
           RUSTDOCFLAGS: -D warnings
 
       - name: Check coverage threshold
-        id: coverage
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          cargo coverage --json --summary-only --output-path target/coverage.json
-          cargo llvm-cov report --summary-only
-          echo "percent=$(jq '.data[0].totals.lines.percent' target/coverage.json)" >> "$GITHUB_OUTPUT"
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/coverage"
+          cargo coverage --json --summary-only --output-path "$RUNNER_TEMP/coverage/coverage.json" 2>&1 \
+            | tee "$RUNNER_TEMP/coverage/coverage.log"
 
-  coverage-badge:
-    name: Publish coverage badge
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Coverage summary
+        if: always()
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: cargo llvm-cov report --summary-only | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: ${{ runner.temp }}/coverage/
+          if-no-files-found: error
+
+  # Publishes the generated project's coverage and test-count badges to
+  # this repository's `badges` branch (path `<branch>/`), using the
+  # scripts the template ships. See template/.github/workflows/ci.yml.
+  publish-badges:
+    name: Publish badges
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: generate
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+    concurrency:
+      group: badges-${{ github.ref_name }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
 
-      # README.md renders this file through shields.io.
-      - name: Push coverage.json to the `badges` branch
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: ${{ runner.temp }}/coverage
+
+      - name: Publish
         env:
-          PERCENT: ${{ needs.generate.outputs.coverage }}
-        run: |
-          color="$(awk -v p="$PERCENT" 'BEGIN { print (p >= 90 ? "brightgreen" : p >= 80 ? "green" : p >= 70 ? "yellow" : "red") }')"
-          git checkout --orphan badges
-          git rm -rfq .
-          printf '{"schemaVersion":1,"label":"coverage","message":"%.1f%%","color":"%s"}\n' \
-            "$PERCENT" "$color" > coverage.json
-          git add coverage.json
-          git -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -qm "Update coverage badge"
-          git push --force origin badges
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: sh template/scripts/ci/publish-badges.sh "$GITHUB_REF_NAME" "$GITHUB_SHA" "$RUNNER_TEMP/coverage/coverage.json" "$RUNNER_TEMP/coverage/coverage.log"
+
+      - name: Verify the README badges render
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh template/scripts/ci/verify-badges-render.sh "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
