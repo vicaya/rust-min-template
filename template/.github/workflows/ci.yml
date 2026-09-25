@@ -46,6 +46,59 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    outputs:
+      percent: ${{ steps.coverage.outputs.percent }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup component add --toolchain stable llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      # The threshold lives in the `coverage` alias in .cargo/config.toml.
+      - name: Check coverage threshold
+        id: coverage
+        run: |
+          cargo coverage --json --summary-only --output-path target/coverage.json
+          cargo llvm-cov report --summary-only
+          echo "percent=$(jq '.data[0].totals.lines.percent' target/coverage.json)" >> "$GITHUB_OUTPUT"
+
+  coverage-badge:
+    name: Publish coverage badge
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: coverage
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # README.md renders this file through shields.io.
+      - name: Push coverage.json to the `badges` branch
+        env:
+          PERCENT: ${{ needs.coverage.outputs.percent }}
+        run: |
+          color="$(awk -v p="$PERCENT" 'BEGIN { print (p >= 90 ? "brightgreen" : p >= 80 ? "green" : p >= 70 ? "yellow" : "red") }')"
+          git checkout --orphan badges
+          git rm -rfq .
+          printf '{"schemaVersion":1,"label":"coverage","message":"%.1f%%","color":"%s"}\n' \
+            "$PERCENT" "$color" > coverage.json
+          git add coverage.json
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "Update coverage badge"
+          git push --force origin badges
+
   msrv:
     name: Minimum supported Rust version
     runs-on: ubuntu-24.04
