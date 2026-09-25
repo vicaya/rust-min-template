@@ -5,6 +5,6 @@
 mod tests {
     #[test]
     fn crate_metadata_is_available() {
-        assert_eq!(env!("CARGO_PKG_NAME"), "skys3");
+        assert_eq!(env!("CARGO_PKG_NAME"), "{{project_name}}");
     }
 }

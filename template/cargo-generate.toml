@@ -1,0 +1,7 @@
+[template]
+# Copy workflows verbatim so GitHub Actions `${{ ... }}` expressions are not
+# treated as Liquid placeholders.
+exclude = [".github/**"]
+
+[hooks]
+pre = ["pre-script.rhai"]
