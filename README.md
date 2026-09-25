@@ -21,7 +21,7 @@ placeholders, so use `cargo generate` instead.
 
 ## What you get
 
-- `Cargo.toml` for a library crate (edition 2024, `rust-version = "1.85"`,
+- `Cargo.toml` for a library crate (edition 2024, `rust-version = "1.98.1"`,
   no dependencies).
 - `src/lib.rs` with `#![forbid(unsafe_code)]`, the README as crate docs, and a
   smoke test.
