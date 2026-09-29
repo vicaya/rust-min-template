@@ -106,7 +106,8 @@ jobs:
   # Runs instead of the build and test jobs when only documentation
   # changed: generates the project (the template's Markdown files are
   # rendered too) and checks its doctests and rustdoc, which include the
-  # template's README.
+  # template's README. On main it also checks this repository's README
+  # badges.
   docs:
     name: Generate a project, doctests and docs
     needs: changes
@@ -136,6 +137,15 @@ jobs:
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
+
+      # A docs-only push to main publishes no badges but may have changed
+      # the README that embeds them, so check that it still renders the
+      # badges already published for main.
+      - name: Verify the README badges render
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh template/scripts/ci/verify-badges-render.sh "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
 
   # The generated project's line coverage gate, on x86_64 only, so the
   # coverage badge has one figure.

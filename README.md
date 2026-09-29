@@ -43,8 +43,9 @@ placeholders, so use `cargo generate` instead.
   renders the test count and line coverage as SVG badges
   (`scripts/ci/badge.sh`) on a `badges` branch, which the README embeds
   through `github.com/<owner>/<repo>/raw/...`. They need no external service
-  and render in private repositories too; the publishing job checks that
-  GitHub serves them from the rendered README.
+  and render in private repositories too. The publishing job checks that
+  GitHub serves them from the rendered README, and a docs-only push to
+  `main`, which publishes nothing, runs the same check.
 - `AGENTS.md` with the pull request branch naming convention for coding
   agents: `<agent-name>/<name-describing-the-task>`, e.g. `claude/...`.
 - Dependabot for GitHub Actions and Cargo.

@@ -39,7 +39,8 @@ and stored as SVG files on the `badges` branch
 (`scripts/ci/publish-badges.sh`, rendered by `scripts/ci/badge.sh`), so they
 need no external service and render in a private repository too. The job
 that publishes them checks that GitHub serves them as images from the
-rendered README (`scripts/ci/verify-badges-render.sh`).
+rendered README (`scripts/ci/verify-badges-render.sh`), and a docs-only push
+to `main`, which publishes nothing, runs the same check.
 
 ## License
 

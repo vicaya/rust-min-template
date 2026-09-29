@@ -92,7 +92,8 @@ jobs:
 
   # Runs instead of the build and test jobs when only documentation
   # changed. The README is the crate's rustdoc (src/lib.rs includes it),
-  # so its doctests and links are still checked.
+  # so its doctests and links are still checked, and on main so are its
+  # badges.
   docs:
     name: Doctests and docs
     needs: changes
@@ -113,6 +114,15 @@ jobs:
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
+
+      # A docs-only push to main publishes no badges but may have changed
+      # the README that embeds them, so check that it still renders the
+      # badges already published for main.
+      - name: Verify the README badges render
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh scripts/ci/verify-badges-render.sh "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
 
   # Line coverage gate. The threshold lives in the `coverage` alias in
   # .cargo/config.toml. Reports are uploaded even when the gate fails. The
