@@ -26,9 +26,16 @@ placeholders, so use `cargo generate` instead.
   no dependencies).
 - `src/lib.rs` with `#![forbid(unsafe_code)]`, the README as crate docs, and a
   smoke test.
-- GitHub Actions CI: `rustfmt`, `clippy -D warnings`, tests, doctests,
-  `rustdoc -D warnings`, a line coverage gate, and a `cargo check` on the
+- GitHub Actions CI: `rustfmt`, `clippy -D warnings`, tests, doctests and
+  `rustdoc -D warnings` on both x86_64 and aarch64 Linux
+  (`ubuntu-24.04-arm`), a line coverage gate, and a `cargo check` on the
   declared minimum Rust version.
+- Docs-only changes skip the build and test jobs. When a pull request or
+  push changes only Markdown files and `LICENSE` files
+  (`scripts/ci/docs-only.sh`), CI runs just the doctests and rustdoc, which
+  cover the README because it is the crate docs. Require the single
+  `CI passed` job in branch protection: it passes when every other job
+  passed or was skipped.
 - A `cargo coverage` alias in `.cargo/config.toml` that runs
   [cargo-llvm-cov] and fails below 85% line coverage (change
   `--fail-under-lines` to move the threshold). CI runs the same alias.
@@ -36,8 +43,9 @@ placeholders, so use `cargo generate` instead.
   renders the test count and line coverage as SVG badges
   (`scripts/ci/badge.sh`) on a `badges` branch, which the README embeds
   through `github.com/<owner>/<repo>/raw/...`. They need no external service
-  and render in private repositories too; the publishing job checks that
-  GitHub serves them from the rendered README.
+  and render in private repositories too. The publishing job checks that
+  GitHub serves them from the rendered README, and a docs-only push to
+  `main`, which publishes nothing, runs the same check.
 - `AGENTS.md` with the pull request branch naming convention for coding
   agents: `<agent-name>/<name-describing-the-task>`, e.g. `claude/...`.
 - Dependabot for GitHub Actions and Cargo.
@@ -63,11 +71,14 @@ cargo-generate's built-in `{{project-name}}` and `{{crate_name}}` also work.
 AGENTS.md                # conventions for coding agents in this repository
 cargo-generate.toml      # points cargo-generate at template/
 .github/workflows/ci.yml # tests this template (not copied into projects)
+.github/actions/         # generates and verifies a project for that CI
 template/                # the files that make up a generated project
 ```
 
 The template is kept in `template/` so this repository's own CI can generate a
-project and run the full check suite against it on every push. The tests and
+project and run the full check suite against it on x86_64 and aarch64 on every
+push. Docs-only changes skip that suite in the same way, using the template's
+`template/scripts/ci/docs-only.sh`. The tests and
 coverage badges above are the generated project's, published with the
 template's own `template/scripts/ci/publish-badges.sh`.
 
