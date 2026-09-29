@@ -21,6 +21,8 @@ jobs:
   generate:
     name: Generate and check a project
     runs-on: ubuntu-24.04
+    outputs:
+      report: ${{ steps.report.outputs.complete }}
     steps:
       - uses: actions/checkout@v7
 
@@ -103,12 +105,28 @@ jobs:
           path: ${{ runner.temp }}/coverage/
           if-no-files-found: error
 
+      # Tells publish-badges whether there are figures to publish: a
+      # coverage report from a run whose tests all passed. That holds when
+      # only the threshold was missed, but not when the tests failed.
+      - name: Check for a complete coverage report
+        id: report
+        if: always()
+        run: |
+          if [ -s "$RUNNER_TEMP/coverage/coverage.json" ] &&
+            ! grep -q '^test result: FAILED' "$RUNNER_TEMP/coverage/coverage.log"; then
+            echo complete=true >> "$GITHUB_OUTPUT"
+          fi
+
   # Publishes the generated project's coverage and test-count badges to
   # this repository's `badges` branch (path `<branch>/`), using the
-  # scripts the template ships. See template/.github/workflows/ci.yml.
+  # scripts the template ships. Also runs when the generate job failed only
+  # on the coverage threshold. See template/.github/workflows/ci.yml.
   publish-badges:
     name: Publish badges
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: >-
+      !cancelled() && needs.generate.outputs.report == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     needs: generate
     runs-on: ubuntu-24.04
     permissions:
