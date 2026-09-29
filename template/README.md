@@ -24,8 +24,15 @@ move the threshold. It needs `cargo install cargo-llvm-cov` and
 
 GitHub Actions runs the same formatting, lint, test, doc, and coverage checks
 on pushes to `main` and on pull requests, plus a `cargo check` on the minimum
-supported Rust version declared in `Cargo.toml`. Dependabot keeps actions and
-crates up to date.
+supported Rust version declared in `Cargo.toml`. The formatting, lint, test
+and doc checks run on both x86_64 and aarch64 Linux. Dependabot keeps actions
+and crates up to date.
+
+A change that touches only documentation (Markdown files and `LICENSE`, as
+decided by `scripts/ci/docs-only.sh`) skips the build and test jobs and runs
+only the doctests and rustdoc, since this README is also the crate docs. To
+protect `main`, require the `CI passed` check: it passes when every other job
+passed or was skipped.
 
 The tests and coverage badges above are generated on every push to `main`
 and stored as SVG files on the `badges` branch

@@ -18,11 +18,53 @@ env:
   PROJECT_NAME: ci-smoke-test
 
 jobs:
-  generate:
-    name: Generate and check a project
+  # Decides whether this change needs the build and test jobs, with the
+  # classifier the template ships (template/scripts/ci/docs-only.sh). For
+  # a docs-only change they are skipped and the `docs` job runs instead.
+  # See template/.github/workflows/ci.yml.
+  changes:
+    name: Classify changes
     runs-on: ubuntu-24.04
     outputs:
-      report: ${{ steps.report.outputs.complete }}
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # A pull request is checked out as its merge commit, whose first
+          # parent is the tip of the base branch.
+          fetch-depth: 2
+
+      - name: Classify
+        id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          base=
+          case "$EVENT" in
+            pull_request) base=HEAD^1 ;;
+            push) if git fetch -q --depth=1 origin "$BEFORE"; then base=$BEFORE; fi ;;
+          esac
+          if [ -n "$base" ] && sh template/scripts/ci/docs-only.sh "$base" HEAD; then
+            echo "Only documentation changed; skipping the build and test jobs."
+            echo code=false >> "$GITHUB_OUTPUT"
+          else
+            echo code=true >> "$GITHUB_OUTPUT"
+          fi
+
+  generate:
+    name: Generate and check a project (${{ matrix.arch }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
 
@@ -30,37 +72,14 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-          rustup component add --toolchain stable rustfmt clippy llvm-tools-preview
+          rustup component add --toolchain stable rustfmt clippy
 
-      - name: Install cargo-generate and cargo-llvm-cov
+      - name: Install cargo-generate
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-generate,cargo-llvm-cov
+          tool: cargo-generate
 
-      - name: Generate project from template
-        run: |
-          cargo generate --path . --name "$PROJECT_NAME" \
-            --destination "$RUNNER_TEMP" --vcs none --silent
-          echo "PROJECT_DIR=$RUNNER_TEMP/$PROJECT_NAME" >> "$GITHUB_ENV"
-
-      - name: Verify rendered placeholders
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          set -x
-          grep -qx "name = \"$PROJECT_NAME\"" Cargo.toml
-          grep -qx "# $PROJECT_NAME" README.md
-          grep -qF "https://github.com/vicaya/$PROJECT_NAME/actions/workflows/ci.yml/badge.svg?branch=main" README.md
-          grep -qF "https://github.com/vicaya/$PROJECT_NAME/raw/badges/main/tests.svg" README.md
-          grep -qF "https://github.com/vicaya/$PROJECT_NAME/raw/badges/main/coverage.svg" README.md
-          cmp scripts/ci/publish-badges.sh "$GITHUB_WORKSPACE/template/scripts/ci/publish-badges.sh"
-          grep -qx "Copyright $(date +%Y) Sky Computing LLC" LICENSE
-          test -f .github/workflows/ci.yml
-          grep -q -- '--fail-under-lines 85' .cargo/config.toml
-          test -f AGENTS.md
-          test ! -e cargo-generate.toml
-          test ! -e pre-script.rhai
-          # No Liquid leftovers outside .github (workflows are copied verbatim).
-          ! grep -rnE '\{\{|\{%' --exclude-dir=.github .
+      - uses: ./.github/actions/generate-project
 
       - name: Check formatting
         working-directory: ${{ env.PROJECT_DIR }}
@@ -83,6 +102,67 @@ jobs:
         run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
+
+  # Runs instead of the build and test jobs when only documentation
+  # changed: generates the project (the template's Markdown files are
+  # rendered too) and checks its doctests and rustdoc, which include the
+  # template's README.
+  docs:
+    name: Generate a project, doctests and docs
+    needs: changes
+    if: needs.changes.outputs.code == 'false'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install cargo-generate
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-generate
+
+      - uses: ./.github/actions/generate-project
+
+      - name: Run doctests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: cargo test --doc --all-features
+
+      - name: Build docs
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  # The generated project's line coverage gate, on x86_64 only, so the
+  # coverage badge has one figure.
+  coverage:
+    name: Coverage
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    outputs:
+      report: ${{ steps.report.outputs.complete }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup component add --toolchain stable llvm-tools-preview
+
+      - name: Install cargo-generate and cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-generate,cargo-llvm-cov
+
+      - uses: ./.github/actions/generate-project
 
       - name: Check coverage threshold
         working-directory: ${{ env.PROJECT_DIR }}
@@ -117,17 +197,37 @@ jobs:
             echo complete=true >> "$GITHUB_OUTPUT"
           fi
 
+  # The one check to require in branch protection; see the `ci-passed` job
+  # in template/.github/workflows/ci.yml.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [changes, generate, docs, coverage]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) exit 1 ;;
+            esac
+          done
+
   # Publishes the generated project's coverage and test-count badges to
   # this repository's `badges` branch (path `<branch>/`), using the
-  # scripts the template ships. Also runs when the generate job failed only
-  # on the coverage threshold. See template/.github/workflows/ci.yml.
+  # scripts the template ships. Also runs when the coverage job failed only
+  # on its threshold. See template/.github/workflows/ci.yml.
   publish-badges:
     name: Publish badges
     if: >-
-      !cancelled() && needs.generate.outputs.report == 'true' &&
+      !cancelled() && needs.coverage.outputs.report == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main'))
-    needs: generate
+    needs: coverage
     runs-on: ubuntu-24.04
     permissions:
       contents: write

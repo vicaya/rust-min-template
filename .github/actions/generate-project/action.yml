@@ -1,0 +1,35 @@
+name: Generate a project
+description: >-
+  Generates a project from template/ into $RUNNER_TEMP/$PROJECT_NAME,
+  exports its path as PROJECT_DIR, and checks that the placeholders were
+  rendered. Needs cargo-generate on PATH and PROJECT_NAME set.
+runs:
+  using: composite
+  steps:
+    - name: Generate project from template
+      shell: bash
+      run: |
+        cargo generate --path . --name "$PROJECT_NAME" \
+          --destination "$RUNNER_TEMP" --vcs none --silent
+        echo "PROJECT_DIR=$RUNNER_TEMP/$PROJECT_NAME" >> "$GITHUB_ENV"
+
+    - name: Verify rendered placeholders
+      shell: bash
+      run: |
+        cd "$PROJECT_DIR"
+        set -x
+        grep -qx "name = \"$PROJECT_NAME\"" Cargo.toml
+        grep -qx "# $PROJECT_NAME" README.md
+        grep -qF "https://github.com/vicaya/$PROJECT_NAME/actions/workflows/ci.yml/badge.svg?branch=main" README.md
+        grep -qF "https://github.com/vicaya/$PROJECT_NAME/raw/badges/main/tests.svg" README.md
+        grep -qF "https://github.com/vicaya/$PROJECT_NAME/raw/badges/main/coverage.svg" README.md
+        cmp scripts/ci/publish-badges.sh "$GITHUB_WORKSPACE/template/scripts/ci/publish-badges.sh"
+        cmp scripts/ci/docs-only.sh "$GITHUB_WORKSPACE/template/scripts/ci/docs-only.sh"
+        grep -qx "Copyright $(date +%Y) Sky Computing LLC" LICENSE
+        test -f .github/workflows/ci.yml
+        grep -q -- '--fail-under-lines 85' .cargo/config.toml
+        test -f AGENTS.md
+        test ! -e cargo-generate.toml
+        test ! -e pre-script.rhai
+        # No Liquid leftovers outside .github (workflows are copied verbatim).
+        ! grep -rnE '\{\{|\{%' --exclude-dir=.github .
