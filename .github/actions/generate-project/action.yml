@@ -29,6 +29,10 @@ runs:
         test -f .github/workflows/ci.yml
         grep -q -- '--fail-under-lines 85' .cargo/config.toml
         test -f AGENTS.md
+        for agent in coding-agent test-agent review-agent; do
+          cmp ".claude/agents/$agent.md" "$GITHUB_WORKSPACE/template/.claude/agents/$agent.md"
+          cmp ".claude/agents/$agent.md" "$GITHUB_WORKSPACE/.claude/agents/$agent.md"
+        done
         test ! -e cargo-generate.toml
         test ! -e pre-script.rhai
         # No Liquid leftovers outside .github (workflows are copied verbatim).

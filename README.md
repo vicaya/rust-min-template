@@ -48,6 +48,8 @@ placeholders, so use `cargo generate` instead.
   `main`, which publishes nothing, runs the same check.
 - `AGENTS.md` with the pull request branch naming convention for coding
   agents: `<agent-name>/<name-describing-the-task>`, e.g. `claude/...`.
+- Project-level Claude Code subagent definitions under `.claude/agents/`
+  (`coding-agent`, `test-agent`, and `review-agent`).
 - Dependabot for GitHub Actions and Cargo.
 - `FSL-1.1-ALv2` license, copyright Sky Computing LLC. The copyright year is
   set to the year you generate the project.
